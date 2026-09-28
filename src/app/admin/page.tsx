@@ -1,4 +1,12 @@
+"use client";
+
+import { useState } from "react";
+import AddProductModal from "../../components/admin/AddProductModal";
+
+
+
 export default function Admin() {
+    const [showAddProduct, setShowAddProduct] = useState(false);
     const products = Array.from({ length: 3 });
 
     return (
@@ -22,16 +30,17 @@ export default function Admin() {
                     </p>
                 </div>
 
-                <a
-                    href="/admin/products/new"
+                <button
+                    type="button"
                     className="btn px-4 py-2 fw-semibold"
                     style={{
                         backgroundColor: "var(--accent)",
                         color: "#fff",
                     }}
+                    onClick={() => setShowAddProduct(true)}
                 >
                     + Add Product
-                </a>
+                </button>
             </div>
 
 
@@ -136,6 +145,10 @@ export default function Admin() {
                 ))}
 
             </div>
+            <AddProductModal
+                show={showAddProduct}
+                onClose={() => setShowAddProduct(false)}
+            />
 
         </main>
     );
