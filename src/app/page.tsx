@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main>
@@ -46,7 +48,8 @@ export default function Home() {
 
             {/* Actions */}
             <div className="d-flex flex-wrap gap-3">
-              <a
+
+              <Link
                 href="/shop"
                 className="btn btn-lg px-4 py-3 fw-semibold"
                 style={{
@@ -55,9 +58,9 @@ export default function Home() {
                 }}
               >
                 Shop
-              </a>
+              </Link>
 
-              <a
+              <Link
                 href="/custom-orders"
                 className="btn btn-lg px-4 py-3 fw-semibold"
                 style={{
@@ -66,7 +69,8 @@ export default function Home() {
                 }}
               >
                 Custom Orders
-              </a>
+              </Link>
+
             </div>
 
           </div>
