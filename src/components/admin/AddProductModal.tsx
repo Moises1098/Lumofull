@@ -6,18 +6,30 @@ import { supabase } from "@/lib/supabase";
 type AddProductModalProps = {
     show: boolean;
     onClose: () => void;
+    onAdded: () => void;
 };
+
+type ProductImage = {
+    file: File;
+    preview: string;
+};
+
+
 
 export default function AddProductModal({
     show,
-    onClose
+    onClose,
+    onAdded,
 }: AddProductModalProps) {
 
-    const [images, setImages] = useState<string[]>([]);
+    const [images, setImages] = useState<ProductImage[]>([]);
     const [name, setName] = useState<string>("");
     const [description, setDescription] = useState<string>("");
     const [price, setPrice] = useState<number | "">("");
-    const [status, setStatus] = useState("published");
+    const [isAdding, setIsAdding] = useState(false);
+    const [status, setStatus] = useState("draft");
+    const [nameError, setNameError] = useState("");
+    const [priceError, setPriceError] = useState("");
 
     // Add Images
     function handleImages(event: React.ChangeEvent<HTMLInputElement>) {
@@ -25,9 +37,10 @@ export default function AddProductModal({
 
         if (!files) return;
 
-        const newImages = Array.from(files).map((file) =>
-            URL.createObjectURL(file)
-        );
+        const newImages: ProductImage[] = Array.from(files).map((file) => ({
+            file: file,
+            preview: URL.createObjectURL(file),
+        }));
 
         setImages((currentImages) => [
             ...currentImages,
@@ -37,14 +50,53 @@ export default function AddProductModal({
 
     // Remove Images
     function removeImage(index: number) {
-        setImages((currentImages) =>
-            currentImages.filter(
-                (_, i) => i !== index
-            )
-        );
+        setImages((currentImages) => {
+            URL.revokeObjectURL(currentImages[index].preview);
+
+            return currentImages.filter((_, i) => i !== index);
+        });
+    }
+
+    async function uploadProductImage(image: ProductImage, productId: number) {
+        const filePath = `${productId}/${crypto.randomUUID()}-${image.file.name}`;
+
+        const { data, error } = await supabase.storage
+            .from("product-images")
+            .upload(filePath, image.file);
+
+        console.log("Image upload:", data);
+        console.log("Image upload error:", error);
+
+        if (error) {
+            return null;
+        }
+
+        return data.path;
     }
 
     async function handleAddProduct() {
+        setNameError("");
+        setPriceError("");
+
+        let hasError = false;
+
+        if (name.trim() === "") {
+            setNameError("Please enter a product name.");
+            hasError = true;
+        }
+
+        if (price === "") {
+            setPriceError("Please enter a price.");
+            hasError = true;
+        } else if (price <= 0) {
+            setPriceError("Price must be greater than $0.");
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+        setIsAdding(true);
         const { data, error } = await supabase
             .from("products")
             .insert({
@@ -58,6 +110,39 @@ export default function AddProductModal({
 
         console.log("Product:", data);
         console.log("Error:", error);
+        if (error) {
+            setIsAdding(false);
+            return;
+        }
+
+        if (data && data.length > 0) {
+            const productId = data[0].id;
+
+            for (const [index, image] of images.entries()) {
+                const storagePath = await uploadProductImage(image, productId);
+                if (!storagePath) {
+                    setIsAdding(false);
+                    return;
+                }
+                if (storagePath) {
+                    const { error: imageError } = await supabase
+                        .from("product_images")
+                        .insert({
+                            product_id: productId,
+                            storage_path: storagePath,
+                            sort_order: index,
+                        });
+
+                    console.log("Image database error:", imageError);
+                    if (imageError) {
+                        setIsAdding(false);
+                        return;
+                    }
+                }
+            }
+        }
+        setIsAdding(false);
+        onAdded();
     }
 
     if (!show) return null;
@@ -94,6 +179,7 @@ export default function AddProductModal({
                         className="btn-close"
                         onClick={onClose}
                         aria-label="Close"
+                        disabled={isAdding}
                     />
                 </div>
 
@@ -111,6 +197,14 @@ export default function AddProductModal({
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                     />
+                    {nameError && (
+                        <div
+                            className="small mt-2"
+                            style={{ color: "#dc3545" }}
+                        >
+                            {nameError}
+                        </div>
+                    )}
                 </div>
 
 
@@ -152,6 +246,14 @@ export default function AddProductModal({
                                 setPrice(e.target.value === "" ? "" : Number(e.target.value))
                             }
                         />
+                        {priceError && (
+                            <div
+                                className="small mt-2"
+                                style={{ color: "#dc3545" }}
+                            >
+                                {priceError}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -213,7 +315,7 @@ export default function AddProductModal({
                                         }}
                                     >
                                         <img
-                                            src={image}
+                                            src={image.preview}
                                             alt={`Product preview ${index + 1}`}
                                             className="w-100 h-100 object-fit-cover"
                                         />
@@ -261,6 +363,7 @@ export default function AddProductModal({
                         type="button"
                         className="btn btn-light"
                         onClick={onClose}
+                        disabled={isAdding}
                     >
                         Cancel
                     </button>
@@ -273,8 +376,9 @@ export default function AddProductModal({
                             color: "#fff",
                         }}
                         onClick={handleAddProduct}
+                        disabled={isAdding}
                     >
-                        Add Product
+                        {isAdding ? "Adding..." : "Add Product"}
                     </button>
                 </div>
 

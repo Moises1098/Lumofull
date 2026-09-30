@@ -1,23 +1,37 @@
 "use client";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 
 export default function AdminLoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-async function handleSignIn() {
-    console.log("Email state:", email);
-    console.log("Password entered:", password.length > 0);
+    const [loginError, setLoginError] = useState("");
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
+    const router = useRouter();
 
-    console.log("Login data:", data);
-    console.log("Login error:", error);
-}
+    async function handleSignIn() {
+        console.log("Email state:", email);
+        console.log("Password entered:", password.length > 0);
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+        console.log("Login data:", data);
+        console.log("Login error:", error);
+
+        if (error) {
+            setLoginError("Incorrect email or password.");
+            return;
+        }
+
+        setLoginError("");
+        router.push("/admin");
+    }
+
     return (
         <main className="container py-5">
             <div
@@ -58,6 +72,12 @@ async function handleSignIn() {
                         onChange={(e) => setPassword(e.target.value)}
                     />
                 </div>
+
+                {loginError && (
+                    <div className="text-danger small mb-3">
+                        {loginError}
+                    </div>
+                )}
 
                 <button
                     type="button"
